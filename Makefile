@@ -3,15 +3,22 @@ SHELL:=/bin/bash
 CFLAGS = -O3 
 SRCS = stats.c stats.h
 
-.PHONY: build test test-lib test-sendmsg test-dgram test-stream clean quickres
+.PHONY: build test checks test-lib test-sendmsg test-dgram test-stream clean quickres
 
-test: test-port test-lib test-sendmsg quickres
+test: checks test-port test-lib test-sendmsg java-tests quickres
 
 test-port:
 	@netstat -tulpn 2>&1 | grep 8080 2> /dev/null && ( echo "Please make sure port 8080 is free!" && false ) || true
 
+checks:
+	@if [ ! -d /usr/include/event2 ] ; then echo "missing libevent-dev, trying to install with apt" ; sudo apt install libevent-dev -y ; fi
+	@if [ ! -f test.txt ] ; then base64 /dev/urandom | head -c 10000000 > test.txt ; fi
+
+
 quickres:
-	@grep type stream_client.log  && for f in *.log ; do egrep "\((ns|us)" $$f ; done
+	grep type stream_client.log  &&  ( for f in *.log ; do line=`egrep "\((ns|us)" $$f` ; if [ ! -z "$$line" ] ; then echo "$$f,$$line," ; fi ; done )
+	grep real *.time
+
 
 test-lib: libevent-server libevent-client basic-event
 	-@killall libevent-server 2>/dev/null || true
@@ -66,9 +73,17 @@ SRCS += ArrayCopy.java ChannelsTest.java HashCodeTest.java HashTestS.java LoopTe
 java-tests:
 	for f in *Test.java ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; done 
 
+niotest:
+	if [ ! -d /tmp/ramdisk ] ; then sudo mkdir /tmp/ramdisk ; sudo mount -t tmpfs -o size=20M tmpfs /tmp/ramdisk ; fi
+	if [ ! -f /tmp/ramdisk/test.txt ] ; then base64 /dev/urandom | head -c 10000000 > /tmp/ramdisk/test.txt ; fi
+	javac ChannelsTest.java && cp ChannelsTest.class /tmp/ramdisk
+	javac FileInputStreamTest.java && cp FileInputStreamTest.class /tmp/ramdisk
+	cd /tmp/ramdisk && time ( java ChannelsTest > nio_ChannelTest.log ) 2> nio_ChannelTest.time
+	cd /tmp/ramdisk && time ( java FileInputStreamTest > nio_FileInputStreamTest.log ) 2> nio_FileInputStreamTest.time
+	cp /tmp/ramdisk/nio* .
+
 zip:
 	tar cvzf test.tgz $(SRCS) Makefile
-
 
 build: $(BINS)
 
