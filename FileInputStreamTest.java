@@ -11,7 +11,7 @@ public class FileInputStreamTest{
       try{
          // create new file input stream
          fis = new FileInputStream("test.txt");
-         
+        Report.start(); 
          // read till the end of the stream
          while((i=fis.read())!=-1)
          {
@@ -25,6 +25,8 @@ public class FileInputStreamTest{
  //           System.out.print("Available: "+available);
  //            System.out.println("; Read: "+c);
          }
+	Report.end();
+	Report.report("FileInputStream");
       }catch(Exception ex){
          // if an I/O error occurs
          ex.printStackTrace();

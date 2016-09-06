@@ -67,11 +67,12 @@ BINS += basic-event
 basic-event: basic_event.c stats.c stats.h
 	gcc basic_event.c stats.c -levent -lm -o basic-event
 
-SRCS += ArrayCopy.java ChannelsTest.java HashCodeTest.java HashTestS.java LoopTest.java ArrayCopyTest.java FileInputStreamTest.java HashTest.java LinkedListExample.java TreeTest.java
+JAVA_TEST_SRCS = ChannelsTest.java HashCodeTest.java HashTestS.java LoopTest.java ArrayCopyTest.java FileInputStreamTest.java HashTest.java LinkedListExample.java TreeTest.java
+SRCS += ArrayCopy.java JAVA_TEST_SRCS
 
 .PHONY: java-tests
 java-tests:
-	for f in *Test.java ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; done 
+	for f in $(JAVA_TEST_SRCS) ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; done 
 
 niotest:
 	if [ ! -d /tmp/ramdisk ] ; then sudo mkdir /tmp/ramdisk ; sudo mount -t tmpfs -o size=20M tmpfs /tmp/ramdisk ; fi
