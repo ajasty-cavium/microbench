@@ -16,7 +16,7 @@ public class HashTestS {
             cache.put(String.valueOf(i),String.valueOf(i+100));
         }
 		Report.end();
-		Report.report("HashMap<S,S>-put");
+		Report.report("HashMap<S/S>-put");
 
 
         String k="";
@@ -26,7 +26,7 @@ public class HashTestS {
             k=cache.get(String.valueOf(i));
         }
 		Report.end();
-		Report.report("HashMap<S,S>-remove");
+		Report.report("HashMap<S/S>-remove");
 
     }
 

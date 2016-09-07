@@ -15,7 +15,7 @@ public class TreeTest{
 		cache.put(i,i+100);
 		}	
 		Report.end();	
-		Report.report("Tree<I,I>-put");
+		Report.report("Tree<I/I>-put");
 
 	
 	int k=0;
@@ -26,7 +26,7 @@ public class TreeTest{
                 }
 
 		Report.end();
-		Report.report("Tree<I,I>-remove");
+		Report.report("Tree<I/I>-remove");
 
        
 }

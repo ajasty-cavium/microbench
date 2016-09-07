@@ -16,7 +16,7 @@ public class HashTest {
             cache.put(i,i+100);
         }
 		Report.end();
-		Report.report("HashMap<I,I>-put");
+		Report.report("HashMap<I/I>-put");
 
 
         int k=0;
@@ -26,7 +26,7 @@ public class HashTest {
             k=cache.remove(i);
         }
 		Report.end();
-		Report.report("HashMap<I,I>-remove");
+		Report.report("HashMap<I/I>-remove");
 
 
     }

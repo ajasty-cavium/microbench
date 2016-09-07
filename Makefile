@@ -5,7 +5,7 @@ SRCS = stats.c stats.h
 
 .PHONY: build test checks test-lib test-sendmsg test-dgram test-stream clean quickres
 
-test: checks test-port test-lib test-sendmsg java-tests quickres
+test: checks test-port test-lib test-sendmsg java-tests niotest quickres
 
 test-port:
 	@netstat -tulpn 2>&1 | grep 8080 2> /dev/null && ( echo "Please make sure port 8080 is free!" && false ) || true
@@ -17,7 +17,7 @@ checks:
 
 quickres:
 	grep type stream_client.log  &&  ( for f in *.log ; do line=`egrep "\((ns|us)" $$f` ; if [ ! -z "$$line" ] ; then echo "$$f,$$line," ; fi ; done )
-	grep real *.time
+	cat java-tests.csv | sed -e 's/,/\t/g'	
 
 
 test-lib: libevent-server libevent-client basic-event
@@ -67,21 +67,26 @@ BINS += basic-event
 basic-event: basic_event.c stats.c stats.h
 	gcc basic_event.c stats.c -levent -lm -o basic-event
 
-JAVA_TEST_SRCS = ChannelsTest.java HashCodeTest.java HashTestS.java LoopTest.java ArrayCopyTest.java FileInputStreamTest.java HashTest.java LinkedListExample.java TreeTest.java
+JAVA_TEST_SRCS = HashCodeTest.java HashTest.java HashTestS.java LoopTest.java ArrayCopyTest.java LinkedListExample.java TreeTest.java ChannelsTest.java FileInputStreamTest.java
 SRCS += ArrayCopy.java JAVA_TEST_SRCS
 
 .PHONY: java-tests
 java-tests:
-	for f in $(JAVA_TEST_SRCS) ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; done 
+	echo "Test,time,time/it,it/s" > java-tests.csv
+	for f in $(JAVA_TEST_SRCS) ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; grep ","  $$TN.log >> java-tests.csv ; done 
 
 niotest:
 	if [ ! -d /tmp/ramdisk ] ; then sudo mkdir /tmp/ramdisk ; sudo mount -t tmpfs -o size=20M tmpfs /tmp/ramdisk ; fi
 	if [ ! -f /tmp/ramdisk/test.txt ] ; then base64 /dev/urandom | head -c 10000000 > /tmp/ramdisk/test.txt ; fi
 	javac ChannelsTest.java && cp ChannelsTest.class /tmp/ramdisk
 	javac FileInputStreamTest.java && cp FileInputStreamTest.class /tmp/ramdisk
+	if [ ! -f /tmp/ramdisk/Report.class ] ; then cp Report.class /tmp/ramdisk ; fi
 	cd /tmp/ramdisk && time ( java ChannelsTest > nio_ChannelTest.log ) 2> nio_ChannelTest.time
 	cd /tmp/ramdisk && time ( java FileInputStreamTest > nio_FileInputStreamTest.log ) 2> nio_FileInputStreamTest.time
 	cp /tmp/ramdisk/nio* .
+	grep "," nio_ChannelTest.log | sed -e 's/^/nio-/' >> java-tests.csv
+	grep "," nio_FileInputStreamTest.log | sed -e 's/^/nio-/' >> java-tests.csv
+	
 
 zip:
 	tar cvzf test.tgz $(SRCS) Makefile

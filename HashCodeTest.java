@@ -14,13 +14,13 @@ public class HashCodeTest
         }
 
         testIdentityHashCode(large);
-		Report.report("System.identityHashCode#1",ITS,"ns");
+		Report.report("System.identityHashCode#1",ITS,"ms");
         testHashCode(large);
-		Report.report("Object.hashCode#1",ITS,"ns");
+		Report.report("Object.hashCode#1",ITS,"ms");
         testIdentityHashCode(large);
-		Report.report("System.identityHashCode#2",ITS,"ns");
+		Report.report("System.identityHashCode#2",ITS,"ms");
         testHashCode(large);
-		Report.report("Object.hashCode#2",ITS,"ns");
+		Report.report("Object.hashCode#2",ITS,"ms");
     }
 
     protected static void testIdentityHashCode(TreeSet<Integer> large)
