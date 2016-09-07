@@ -9,27 +9,24 @@ public class TreeTest{
    public static void main(String args[]) {
 
 	TreeMap<Integer, Integer> cache = new TreeMap<Integer, Integer>();
-	 long start_time2 = System.nanoTime();	
-
+         Report.start();
 	for(int i=0;i<10000000;++i)
 		{
 		cache.put(i,i+100);
 		}	
-        long end_time2 = System.nanoTime();
-        double difference2 = (end_time2 - start_time2)/1e6;        
-        System.out.println("time was " +difference2);
+		Report.end();	
+		Report.report("Tree<I,I>-put");
 
 	
 	int k=0;
-	long start_time = System.nanoTime();
+         Report.start();
 	for(int i=0;i<10000000;++i)
                 {
                 k=cache.remove(i);
                 }
 
-	long end_time = System.nanoTime();
-	double difference = (end_time - start_time)/1e6;
-        System.out.println("time was " +difference);
+		Report.end();
+		Report.report("Tree<I,I>-remove");
 
        
 }
