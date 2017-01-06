@@ -7,6 +7,8 @@ SRCS = stats.c stats.h
 
 test: checks test-port test-lib test-sendmsg java-tests niotest quickres
 
+test-java: java-tests niotest quickres
+
 test-port:
 	@netstat -tulpn 2>&1 | grep 8080 2> /dev/null && ( echo "Please make sure port 8080 is free!" && false ) || true
 
@@ -16,7 +18,7 @@ checks:
 
 
 quickres:
-	grep type stream_client.log  &&  ( for f in *.log ; do line=`egrep "\((ns|us)" $$f` ; if [ ! -z "$$line" ] ; then echo "$$f,$$line," ; fi ; done )
+	if [ -f stream_client.log ] ; then grep type stream_client.log  &&  ( for f in *.log ; do line=`egrep "\((ns|us)" $$f` ; if [ ! -z "$$line" ] ; then echo "$$f,$$line," ; fi ; done ) ; fi
 	cat java-tests.csv | sed -e 's/,/\t/g'	
 
 
