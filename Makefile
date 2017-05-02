@@ -69,7 +69,7 @@ BINS += basic-event
 basic-event: basic_event.c stats.c stats.h
 	gcc basic_event.c stats.c -levent -lm -o basic-event
 
-JAVA_TEST_SRCS = HashCodeTest.java HashTest.java HashTestS.java LoopTest.java ArrayCopyTest.java LinkedListExample.java TreeTest.java ChannelsTest.java FileInputStreamTest.java
+JAVA_TEST_SRCS = HashCodeTest.java HashTest.java HashTestS.java LoopTest.java ArrayCopyTest.java LinkedListExample.java TreeTest.java ChannelsTest.java FileInputStreamTest.java FileOutputStreamTest.java
 SRCS += ArrayCopy.java JAVA_TEST_SRCS
 
 .PHONY: java-tests
