@@ -8,6 +8,9 @@ public class Report {
 		end = System.nanoTime();
 	}
 	public static void report(String name, long its, String units) {
+		report(name,its, units, "its/s");
+	}
+	public static void report(String name, long its, String units, String itunits) {
 		double duration=end-start;
 		double sduration = (end - start)/1e9;
 		if (units.equals("s"))
@@ -19,7 +22,7 @@ public class Report {
 
 		String res=String.format("%s%.2f%s",sep,duration,units);
 		String itres="";
-		if (its>1) String.format("%s%.2f%s%s%.2f%s",sep,duration/its,units,sep,its/sduration,"its/s");
+		if (its>1) res+=String.format("%s%.2f%s/it%s%.2f%s",sep,duration/its,units,sep,its/sduration,itunits);
 		System.out.println(name + res + itres);
 	}
 	public static void report(String name) {

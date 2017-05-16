@@ -3,11 +3,18 @@ SHELL:=/bin/bash
 CFLAGS = -O3 
 SRCS = stats.c stats.h
 
-.PHONY: build test checks test-lib test-sendmsg test-dgram test-stream clean quickres
+.PHONY: build test checks test-lib test-sendmsg test-dgram test-stream clean quickres archive results_show test-fileio
+
+ifndef $(LOGDIR)
+LOGDIR=logs
+endif
+
 
 test: checks test-port test-lib test-sendmsg java-tests niotest quickres
 
-test-java: java-tests niotest quickres
+test-java: java-tests quickres
+
+test-fileio: java-file-tests c-file-tests
 
 test-port:
 	@netstat -tulpn 2>&1 | grep 8080 2> /dev/null && ( echo "Please make sure port 8080 is free!" && false ) || true
@@ -15,12 +22,17 @@ test-port:
 checks:
 	@if [ ! -d /usr/include/event2 ] ; then echo "missing libevent-dev, trying to install with apt" ; sudo apt install libevent-dev -y ; fi
 	@if [ ! -f test.txt ] ; then base64 /dev/urandom | head -c 10000000 > test.txt ; fi
+	@if [ ! -d $(LOGDIR) ] ; then mkdir -p $(LOGDIR) ; fi
 
+archive: checks
+	mv *.log $(LOGDIR)
+	mv *.time $(LOGDIR)
 
-quickres:
+quickres: results_show archive
+
+results_show:
 	if [ -f stream_client.log ] ; then grep type stream_client.log  &&  ( for f in *.log ; do line=`egrep "\((ns|us)" $$f` ; if [ ! -z "$$line" ] ; then echo "$$f,$$line," ; fi ; done ) ; fi
 	cat java-tests.csv | sed -e 's/,/\t/g'	
-
 
 test-lib: libevent-server libevent-client basic-event
 	-@killall libevent-server 2>/dev/null || true
@@ -69,26 +81,83 @@ BINS += basic-event
 basic-event: basic_event.c stats.c stats.h
 	gcc basic_event.c stats.c -levent -lm -o basic-event
 
-JAVA_TEST_SRCS = HashCodeTest.java HashTest.java HashTestS.java LoopTest.java ArrayCopyTest.java LinkedListExample.java TreeTest.java ChannelsTest.java FileInputStreamTest.java FileOutputStreamTest.java
-SRCS += ArrayCopy.java JAVA_TEST_SRCS
+SRCS += bench_write.c bench_read.c
+BINS += bench_write bench_read 
 
-.PHONY: java-tests
-java-tests:
+bench_write: bench_write.c
+	gcc -D_GNU_SOURCE -O2 -g bench_write.c -o bench_write
+
+bench_read: bench_read.c
+	gcc -D_GNU_SOURCE -O2 -g bench_read.c -o bench_read
+
+JAVA_TEST_SRCS = HashCodeTest.java HashTest.java HashTestS.java LoopTest.java ArrayCopyTest.java LinkedListExample.java TreeTest.java ArrayCopyTest.java
+JAVA_FILE_TEST_SRCS = ChannelsTest.java FileInputStreamTest.java FileOutputStreamTest.java
+SRCS += $(JAVA_TEST_SRCS) $(JAVA_FILE_TEST_SRCS)
+
+.PHONY: java-tests niotest ramdisk-check
+java-tests: checks java-file-tests c-file-tests
 	echo "Test,time,time/it,it/s" > java-tests.csv
 	for f in $(JAVA_TEST_SRCS) ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; time ( java $$TN > $$TN.log ) 2>$$TN.time ; grep ","  $$TN.log >> java-tests.csv ; done 
+	cat java-file-tests.csv >> java-tests.csv
 
-niotest:
-	if [ ! -d /tmp/ramdisk ] ; then sudo mkdir /tmp/ramdisk ; sudo mount -t tmpfs -o size=20M tmpfs /tmp/ramdisk ; fi
-	if [ ! -f /tmp/ramdisk/test.txt ] ; then base64 /dev/urandom | head -c 10000000 > /tmp/ramdisk/test.txt ; fi
-	javac ChannelsTest.java && cp ChannelsTest.class /tmp/ramdisk
-	javac FileInputStreamTest.java && cp FileInputStreamTest.class /tmp/ramdisk
-	if [ ! -f /tmp/ramdisk/Report.class ] ; then cp Report.class /tmp/ramdisk ; fi
-	cd /tmp/ramdisk && time ( java ChannelsTest > nio_ChannelTest.log ) 2> nio_ChannelTest.time
-	cd /tmp/ramdisk && time ( java FileInputStreamTest > nio_FileInputStreamTest.log ) 2> nio_FileInputStreamTest.time
-	cp /tmp/ramdisk/nio* .
-	grep "," nio_ChannelTest.log | sed -e 's/^/nio-/' >> java-tests.csv
-	grep "," nio_FileInputStreamTest.log | sed -e 's/^/nio-/' >> java-tests.csv
-	
+SRCS += UnsafeCopyTest.java
+
+UnsafeCopyTest: UnsafeCopyTest.java
+	javac UnsafeCopyTest.java
+
+ArrayCopyTest: ArrayCopyTest.java
+	javac ArrayCopyTest.java
+
+CopyTest.csv : UnsafeCopyTest ArrayCopyTest
+	java UnsafeCopyTest 10   10000000 >> CopyTest.csv
+	java UnsafeCopyTest 100  10000000 >> CopyTest.csv
+	java UnsafeCopyTest 1000 10000000 >> CopyTest.csv
+	java UnsafeCopyTest 10000 1000000 >> CopyTest.csv
+	java UnsafeCopyTest 100000 100000 >> CopyTest.csv
+	java ArrayCopyTest 10   10000000 >> CopyTest.csv
+	java ArrayCopyTest 100  10000000 >> CopyTest.csv
+	java ArrayCopyTest 1000 10000000 >> CopyTest.csv
+	java ArrayCopyTest 10000 1000000 >> CopyTest.csv
+	java ArrayCopyTest 100000 100000 >> CopyTest.csv
+
+
+java-file-tests: checks niotest
+	for f in $(JAVA_FILE_TEST_SRCS) ; do TN=`basename $$f .java` ; javac $$f ; echo running $$TN ; \
+	 for size in 10 100 1000 4096 ; do \
+		time ( java $$TN $$size 10 > $${TN}_$${size}.log ) 2>$${TN}_$${size}.time ; grep ","  $${TN}_$${size}.log >> java-file-tests.csv \
+	 ; done \
+	; done 
+	mkdir -p $(LOGDIR)/java
+	mv *.log *.time $(LOGDIR)/java
+
+c-file-tests: checks ramdisk-check bench_write bench_read
+	for TN in bench_write bench_read ; do \
+	 cp $$TN /tmp/ramdisk ; \
+	 for size in 10 100 1000 4096 ; do \
+		time ( ./$$TN $$size 10 > $${TN}_$${size}.log ) 2>$${TN}_$${size}.time ; grep ","  $${TN}_$${size}.log >> c-file-tests.csv ; \
+		pushd /tmp/ramdisk >/dev/null && time ( ./$$TN $$size 100 > ramdisk_$${TN}_$${size}.log ) 2>ramdisk_$${TN}_$${size}.time ; popd >/dev/null ; \
+		grep ","  /tmp/ramdisk/ramdisk_$${TN}_$${size}.log | sed -e 's/^/ramdisk-/' >> c-file-tests.csv \
+	 ; done \
+	; done
+	mkdir -p $(LOGDIR)/c
+	mv /tmp/ramdisk/*.log /tmp/ramdisk/*.time *.log *.time $(LOGDIR)/c
+
+ramdisk-check:
+	if [ ! -d /tmp/ramdisk ] ; then sudo mkdir /tmp/ramdisk ; sudo mount -t tmpfs -o size=220m tmpfs /tmp/ramdisk ; sudo chmod a+w /tmp/ramdisk ; fi
+	if [ ! -f /tmp/ramdisk/test.txt ] ; then base64 /dev/urandom | head -c 100000000 > /tmp/ramdisk/test.txt ; fi
+
+niotest: checks ramdisk-check
+	for f in ChannelsTest FileInputStreamTest FileOutputStreamTest Report ; do \
+		javac $$f.java && cp $$f.class /tmp/ramdisk ; \
+	done
+	for TN in FileOutputStreamTest ChannelsTest FileInputStreamTest ; do \
+		echo running $$TN ; \
+		for size in 10 100 1000 4096 ; do \
+		 pushd /tmp/ramdisk >/dev/null && time ( java $$TN $$size 100 > ramdisk_$${TN}_$${size}.log ) 2> ramdisk_$${TN}_$${size}.time && popd >/dev/null ; \
+		 grep ","  /tmp/ramdisk/ramdisk_$${TN}_$${size}.log | sed -e 's/^/ramdisk-/' >> java-file-tests.csv \
+		; done \
+	; done
+	mv /tmp/ramdisk/*.log /tmp/ramdisk/*.time $(LOGDIR)
 
 zip:
 	tar cvzf test.tgz $(SRCS) Makefile
@@ -96,5 +165,7 @@ zip:
 build: $(BINS)
 
 clean: 
-	rm -f $(BINS) *.class *.log *.time
+	rm -f $(BINS) *.class test.txt testout.txt c-file-tests.csv java-file-tests.csv java-tests.csv CopyTest.csv
+	if [ -d /tmp/ramdisk ] ; then sudo umount /tmp/ramdisk ; sudo rm -rf /tmp/ramdisk ; fi
+
 
